@@ -1,0 +1,6 @@
+{
+  "name": "RangLive",
+  "description": "Pan-India live video streaming, 1-on-1 video & voice calls, multiplayer Ludo club, coin wallet, phone login, and referral rewards.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

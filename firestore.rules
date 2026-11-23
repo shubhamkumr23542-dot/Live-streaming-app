@@ -1,0 +1,463 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.phone_number != null
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidCode(code) {
+      return isValidString(code, 4, 16) && code.matches('^[A-Z0-9]+$');
+    }
+
+    // --- Validation Blueprints ---
+    function isValidPublicProfile(data, userId) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'city', 'state', 'language', 'referralCode',
+        'isOnline', 'isLive', 'callRatePerMin', 'winsCount', 'avatarColor',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'city', 'state', 'language', 'referralCode',
+        'isOnline', 'isLive', 'callRatePerMin', 'winsCount', 'avatarColor',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.uid == userId &&
+      isValidId(data.uid) &&
+      isValidString(data.displayName, 2, 60) &&
+      isValidString(data.city, 2, 50) &&
+      isValidString(data.state, 2, 50) &&
+      isValidString(data.language, 2, 40) &&
+      isValidCode(data.referralCode) &&
+      data.isOnline is bool &&
+      data.isLive is bool &&
+      data.callRatePerMin is int && data.callRatePerMin >= 0 && data.callRatePerMin <= 5000 &&
+      data.winsCount is int && data.winsCount >= 0 && data.winsCount <= 1000000 &&
+      isValidString(data.avatarColor, 3, 24) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data, userId) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'phoneNumber', 'phoneVerified', 'city', 'state',
+        'language', 'coins', 'referralCode', 'referredBy', 'referralCount',
+        'totalEarnedCoins', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'phoneNumber', 'phoneVerified', 'email', 'city', 'state',
+        'language', 'coins', 'referralCode', 'referredBy', 'referralCount',
+        'totalEarnedCoins', 'createdAt', 'updatedAt'
+      ]) &&
+      data.uid == userId &&
+      isValidId(data.uid) &&
+      isValidString(data.displayName, 2, 60) &&
+      isValidString(data.phoneNumber, 0, 20) &&
+      data.phoneVerified is bool &&
+      (!('email' in data) || isValidString(data.email, 0, 120)) &&
+      isValidString(data.city, 2, 50) &&
+      isValidString(data.state, 2, 50) &&
+      isValidString(data.language, 2, 40) &&
+      data.coins is int && data.coins >= 0 && data.coins <= 10000000 &&
+      isValidCode(data.referralCode) &&
+      isValidString(data.referredBy, 0, 16) &&
+      data.referralCount is int && data.referralCount >= 0 && data.referralCount <= 100000 &&
+      data.totalEarnedCoins is int && data.totalEarnedCoins >= 0 && data.totalEarnedCoins <= 10000000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidReferralCode(data, code) {
+      return data.keys().hasAll(['code', 'ownerId', 'ownerName', 'createdAt']) &&
+      data.keys().hasOnly(['code', 'ownerId', 'ownerName', 'createdAt']) &&
+      data.code == code &&
+      isValidCode(data.code) &&
+      isValidId(data.ownerId) &&
+      isValidString(data.ownerName, 2, 60) &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidReferralClaim(data, claimantId) {
+      return data.keys().hasAll([
+        'claimantId', 'claimantName', 'referrerId', 'referrerCode',
+        'bonusCoins', 'claimedByReferrer', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'claimantId', 'claimantName', 'referrerId', 'referrerCode',
+        'bonusCoins', 'claimedByReferrer', 'createdAt', 'updatedAt'
+      ]) &&
+      data.claimantId == claimantId &&
+      isValidId(data.claimantId) &&
+      isValidString(data.claimantName, 2, 60) &&
+      isValidId(data.referrerId) &&
+      data.referrerId != data.claimantId &&
+      isValidCode(data.referrerCode) &&
+      data.bonusCoins is int && data.bonusCoins == 100 &&
+      data.claimedByReferrer is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidTransaction(data, txId) {
+      return data.keys().hasAll([
+        'txId', 'userId', 'type', 'amount', 'rupeesPaid',
+        'description', 'balanceAfter', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'txId', 'userId', 'type', 'amount', 'rupeesPaid',
+        'description', 'balanceAfter', 'createdAt'
+      ]) &&
+      data.txId == txId &&
+      isValidId(data.txId) &&
+      isValidId(data.userId) &&
+      data.type in [
+        'coin_purchase', 'call_spend', 'gift_send', 'gift_receive',
+        'referral_bonus', 'ludo_entry', 'ludo_win', 'welcome_bonus'
+      ] &&
+      data.amount is int && data.amount >= -1000000 && data.amount <= 1000000 &&
+      data.rupeesPaid is int && data.rupeesPaid >= 0 && data.rupeesPaid <= 1000000 &&
+      isValidString(data.description, 2, 160) &&
+      data.balanceAfter is int && data.balanceAfter >= 0 && data.balanceAfter <= 10000000 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidLiveStream(data, streamId) {
+      return data.keys().hasAll([
+        'streamId', 'hostId', 'hostName', 'hostCity', 'title',
+        'category', 'language', 'status', 'viewerCount', 'callRatePerMin',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'streamId', 'hostId', 'hostName', 'hostCity', 'title',
+        'category', 'language', 'status', 'viewerCount', 'callRatePerMin',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.streamId == streamId &&
+      isValidId(data.streamId) &&
+      isValidId(data.hostId) &&
+      isValidString(data.hostName, 2, 60) &&
+      isValidString(data.hostCity, 2, 50) &&
+      isValidString(data.title, 3, 100) &&
+      isValidString(data.category, 2, 40) &&
+      isValidString(data.language, 2, 40) &&
+      data.status in ['live', 'ended'] &&
+      data.viewerCount is int && data.viewerCount >= 0 && data.viewerCount <= 1000000 &&
+      data.callRatePerMin is int && data.callRatePerMin >= 0 && data.callRatePerMin <= 5000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidStreamMessage(data, streamId, messageId) {
+      return data.keys().hasAll([
+        'messageId', 'streamId', 'senderId', 'senderName',
+        'text', 'giftName', 'giftCoins', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'messageId', 'streamId', 'senderId', 'senderName',
+        'text', 'giftName', 'giftCoins', 'createdAt'
+      ]) &&
+      data.messageId == messageId &&
+      data.streamId == streamId &&
+      isValidId(data.messageId) &&
+      isValidId(data.streamId) &&
+      isValidId(data.senderId) &&
+      isValidString(data.senderName, 2, 60) &&
+      isValidString(data.text, 1, 300) &&
+      isValidString(data.giftName, 0, 40) &&
+      data.giftCoins is int && data.giftCoins >= 0 && data.giftCoins <= 100000 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidCallRecord(data, callId) {
+      return data.keys().hasAll([
+        'callId', 'callerId', 'callerName', 'calleeId', 'calleeName',
+        'callType', 'ratePerMin', 'status', 'durationSec', 'coinsSpent',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'callId', 'callerId', 'callerName', 'calleeId', 'calleeName',
+        'callType', 'ratePerMin', 'status', 'durationSec', 'coinsSpent',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.callId == callId &&
+      isValidId(data.callId) &&
+      isValidId(data.callerId) &&
+      isValidString(data.callerName, 2, 60) &&
+      isValidId(data.calleeId) &&
+      isValidString(data.calleeName, 2, 60) &&
+      data.callType in ['video', 'audio'] &&
+      data.ratePerMin is int && data.ratePerMin >= 0 && data.ratePerMin <= 5000 &&
+      data.status in ['ringing', 'active', 'ended', 'missed'] &&
+      data.durationSec is int && data.durationSec >= 0 && data.durationSec <= 86400 &&
+      data.coinsSpent is int && data.coinsSpent >= 0 && data.coinsSpent <= 1000000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidLudoMatch(data, matchId) {
+      return data.keys().hasAll([
+        'matchId', 'roomCode', 'hostId', 'hostName', 'playersCount',
+        'entryCoins', 'prizeCoins', 'winnerName', 'status',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'matchId', 'roomCode', 'hostId', 'hostName', 'playersCount',
+        'entryCoins', 'prizeCoins', 'winnerName', 'status',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.matchId == matchId &&
+      isValidId(data.matchId) &&
+      isValidString(data.roomCode, 4, 12) &&
+      data.roomCode.matches('^[A-Z0-9]+$') &&
+      isValidId(data.hostId) &&
+      isValidString(data.hostName, 2, 60) &&
+      data.playersCount is int && data.playersCount >= 2 && data.playersCount <= 4 &&
+      data.entryCoins is int && data.entryCoins >= 0 && data.entryCoins <= 100000 &&
+      data.prizeCoins is int && data.prizeCoins >= 0 && data.prizeCoins <= 400000 &&
+      isValidString(data.winnerName, 0, 60) &&
+      data.status in ['waiting', 'playing', 'finished'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Public Profiles (No PII)
+    match /publicProfiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidPublicProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidPublicProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().referralCode == existing().referralCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'city', 'state', 'language', 'isOnline',
+          'isLive', 'callRatePerMin', 'winsCount', 'avatarColor', 'updatedAt'
+        ]);
+    }
+
+    // 2. Private User Accounts & Wallets (Strict Owner-Only, No List)
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUserPrivate(incoming(), userId) &&
+        incoming().coins <= 250 &&
+        incoming().totalEarnedCoins <= 250 &&
+        incoming().referralCount == 0 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUserPrivate(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().referralCode == existing().referralCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'phoneNumber', 'phoneVerified', 'city', 'state', 'language', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'coins', 'referralCount', 'totalEarnedCoins', 'updatedAt'
+          ])
+        );
+    }
+
+    // 3. Referral Code Directory (Immutable Lookup by Exact Code)
+    match /referralCodes/{code} {
+      allow get: if isSignedIn() && isValidCode(code);
+      allow create: if isVerifiedUser() &&
+        isValidCode(code) &&
+        isValidReferralCode(incoming(), code) &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time;
+    }
+
+    // 4. Referral Claims (One per claimant)
+    match /referralClaims/{claimantId} {
+      allow get: if isSignedIn() && isValidId(claimantId) && (
+        existing().claimantId == request.auth.uid ||
+        existing().referrerId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        existing().claimantId == request.auth.uid ||
+        existing().referrerId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        isValidId(claimantId) &&
+        isOwner(claimantId) &&
+        isValidReferralClaim(incoming(), claimantId) &&
+        incoming().claimedByReferrer == false &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/referralCodes/$(incoming().referrerCode)) &&
+        get(/databases/$(database)/documents/referralCodes/$(incoming().referrerCode)).data.ownerId == incoming().referrerId;
+      allow update: if isVerifiedUser() &&
+        isValidId(claimantId) &&
+        existing().referrerId == request.auth.uid &&
+        existing().claimedByReferrer == false &&
+        isValidReferralClaim(incoming(), claimantId) &&
+        incoming().claimantId == existing().claimantId &&
+        incoming().referrerId == existing().referrerId &&
+        incoming().referrerCode == existing().referrerCode &&
+        incoming().bonusCoins == existing().bonusCoins &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().claimedByReferrer == true &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['claimedByReferrer', 'updatedAt']);
+    }
+
+    // 5. Coin Transactions (Owner-Only Immutable Ledger)
+    match /transactions/{txId} {
+      allow get: if isSignedIn() && isValidId(txId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(txId) &&
+        isValidTransaction(incoming(), txId) &&
+        incoming().userId == request.auth.uid &&
+        incoming().createdAt == request.time;
+    }
+
+    // 6. Live Streams
+    match /streams/{streamId} {
+      allow get: if isSignedIn() && isValidId(streamId);
+      allow list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidId(streamId) &&
+        isValidLiveStream(incoming(), streamId) &&
+        incoming().hostId == request.auth.uid &&
+        incoming().status == 'live' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(streamId) &&
+        existing().hostId == request.auth.uid &&
+        existing().status != 'ended' &&
+        isValidLiveStream(incoming(), streamId) &&
+        incoming().hostId == existing().hostId &&
+        incoming().streamId == existing().streamId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'status', 'viewerCount', 'callRatePerMin', 'updatedAt'
+        ]);
+
+      // 6b. Stream Chat & Gifts Subcollection (Master Gate)
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(streamId) && isValidId(messageId) &&
+          exists(/databases/$(database)/documents/streams/$(streamId));
+        allow list: if isSignedIn() && isValidId(streamId);
+        allow create: if isVerifiedUser() &&
+          isValidId(streamId) &&
+          isValidId(messageId) &&
+          exists(/databases/$(database)/documents/streams/$(streamId)) &&
+          isValidStreamMessage(incoming(), streamId, messageId) &&
+          incoming().senderId == request.auth.uid &&
+          incoming().createdAt == request.time;
+      }
+    }
+
+    // 7. 1-on-1 Call Records (Participants Only)
+    match /callRecords/{callId} {
+      allow get: if isSignedIn() && isValidId(callId) && (
+        existing().callerId == request.auth.uid ||
+        existing().calleeId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        existing().callerId == request.auth.uid ||
+        existing().calleeId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        isValidId(callId) &&
+        isValidCallRecord(incoming(), callId) &&
+        incoming().callerId == request.auth.uid &&
+        incoming().status == 'ringing' &&
+        incoming().durationSec == 0 &&
+        incoming().coinsSpent == 0 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(callId) &&
+        (existing().callerId == request.auth.uid || existing().calleeId == request.auth.uid) &&
+        !(existing().status in ['ended', 'missed']) &&
+        isValidCallRecord(incoming(), callId) &&
+        incoming().callId == existing().callId &&
+        incoming().callerId == existing().callerId &&
+        incoming().calleeId == existing().calleeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'durationSec', 'coinsSpent', 'updatedAt'
+        ]);
+    }
+
+    // 8. Ludo Matches
+    match /ludoMatches/{matchId} {
+      allow get: if isSignedIn() && isValidId(matchId);
+      allow list: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+        isValidId(matchId) &&
+        isValidLudoMatch(incoming(), matchId) &&
+        incoming().hostId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(matchId) &&
+        existing().hostId == request.auth.uid &&
+        existing().status != 'finished' &&
+        isValidLudoMatch(incoming(), matchId) &&
+        incoming().matchId == existing().matchId &&
+        incoming().hostId == existing().hostId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'playersCount', 'prizeCoins', 'winnerName', 'status', 'updatedAt'
+        ]);
+    }
+  }
+}

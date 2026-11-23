@@ -1,0 +1,205 @@
+{
+  "entities": {
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly visible creator and player profile across India (strictly excludes PII).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "state": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "language": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 16, "pattern": "^[A-Z0-9]+$" },
+        "isOnline": { "type": "boolean" },
+        "isLive": { "type": "boolean" },
+        "callRatePerMin": { "type": "integer" },
+        "winsCount": { "type": "integer" },
+        "avatarColor": { "type": "string", "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "city", "state", "language", "referralCode", "isOnline", "isLive", "callRatePerMin", "winsCount", "avatarColor", "createdAt", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private user account containing PII, coin wallet balance, and referral state.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "phoneNumber": { "type": "string", "maxLength": 20 },
+        "phoneVerified": { "type": "boolean" },
+        "email": { "type": "string", "maxLength": 120 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "state": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "language": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "coins": { "type": "integer" },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 16, "pattern": "^[A-Z0-9]+$" },
+        "referredBy": { "type": "string", "maxLength": 16 },
+        "referralCount": { "type": "integer" },
+        "totalEarnedCoins": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "phoneNumber", "phoneVerified", "city", "state", "language", "coins", "referralCode", "referredBy", "referralCount", "totalEarnedCoins", "createdAt", "updatedAt"]
+    },
+    "ReferralCode": {
+      "title": "ReferralCode",
+      "description": "Unique referral code mapping to its owner.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 4, "maxLength": 16, "pattern": "^[A-Z0-9]+$" },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "ownerId", "ownerName", "createdAt"]
+    },
+    "ReferralClaim": {
+      "title": "ReferralClaim",
+      "description": "Tracks an invited user redeeming a referrer code so the referrer can collect their bonus.",
+      "type": "object",
+      "properties": {
+        "claimantId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "claimantName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "referrerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "referrerCode": { "type": "string", "minLength": 4, "maxLength": 16, "pattern": "^[A-Z0-9]+$" },
+        "bonusCoins": { "type": "integer" },
+        "claimedByReferrer": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["claimantId", "claimantName", "referrerId", "referrerCode", "bonusCoins", "claimedByReferrer", "createdAt", "updatedAt"]
+    },
+    "CoinTransaction": {
+      "title": "CoinTransaction",
+      "description": "Immutable ledger entry for coin purchases, video calls, gifts, Ludo games, and referrals.",
+      "type": "object",
+      "properties": {
+        "txId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["coin_purchase", "call_spend", "gift_send", "gift_receive", "referral_bonus", "ludo_entry", "ludo_win", "welcome_bonus"] },
+        "amount": { "type": "integer" },
+        "rupeesPaid": { "type": "integer" },
+        "description": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "balanceAfter": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["txId", "userId", "type", "amount", "rupeesPaid", "description", "balanceAfter", "createdAt"]
+    },
+    "LiveStream": {
+      "title": "LiveStream",
+      "description": "Live video broadcast room hosted by a creator in India.",
+      "type": "object",
+      "properties": {
+        "streamId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "hostCity": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "language": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "status": { "type": "string", "enum": ["live", "ended"] },
+        "viewerCount": { "type": "integer" },
+        "callRatePerMin": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["streamId", "hostId", "hostName", "hostCity", "title", "category", "language", "status", "viewerCount", "callRatePerMin", "createdAt", "updatedAt"]
+    },
+    "StreamMessage": {
+      "title": "StreamMessage",
+      "description": "Live chat message or coin gift inside a live stream room.",
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "streamId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "giftName": { "type": "string", "maxLength": 40 },
+        "giftCoins": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["messageId", "streamId", "senderId", "senderName", "text", "giftName", "giftCoins", "createdAt"]
+    },
+    "CallRecord": {
+      "title": "CallRecord",
+      "description": "1-on-1 live video or voice call record between two users.",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "callerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "callerName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "calleeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "calleeName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "callType": { "type": "string", "enum": ["video", "audio"] },
+        "ratePerMin": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "missed"] },
+        "durationSec": { "type": "integer" },
+        "coinsSpent": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["callId", "callerId", "callerName", "calleeId", "calleeName", "callType", "ratePerMin", "status", "durationSec", "coinsSpent", "createdAt", "updatedAt"]
+    },
+    "LudoMatch": {
+      "title": "LudoMatch",
+      "description": "Recorded Ludo club match history and winner summary.",
+      "type": "object",
+      "properties": {
+        "matchId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomCode": { "type": "string", "minLength": 4, "maxLength": 12, "pattern": "^[A-Z0-9]+$" },
+        "hostId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "hostName": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "playersCount": { "type": "integer" },
+        "entryCoins": { "type": "integer" },
+        "prizeCoins": { "type": "integer" },
+        "winnerName": { "type": "string", "maxLength": 60 },
+        "status": { "type": "string", "enum": ["waiting", "playing", "finished"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["matchId", "roomCode", "hostId", "hostName", "playersCount", "entryCoins", "prizeCoins", "winnerName", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/publicProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Publicly readable creator and player profiles without PII."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Owner-only private profile with phone number, wallet coins, and referral metrics."
+    },
+    "/referralCodes/{code}": {
+      "schema": { "$ref": "#/entities/ReferralCode" },
+      "description": "Immutable referral code lookup table."
+    },
+    "/referralClaims/{claimantId}": {
+      "schema": { "$ref": "#/entities/ReferralClaim" },
+      "description": "One-time referral redemptions readable by claimant or referrer."
+    },
+    "/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/CoinTransaction" },
+      "description": "Owner-only immutable coin transaction history."
+    },
+    "/streams/{streamId}": {
+      "schema": { "$ref": "#/entities/LiveStream" },
+      "description": "Active and ended live streams hosted across India."
+    },
+    "/streams/{streamId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/StreamMessage" },
+      "description": "Live chat and virtual coin gifts within a stream."
+    },
+    "/callRecords/{callId}": {
+      "schema": { "$ref": "#/entities/CallRecord" },
+      "description": "1-on-1 live video and audio call logs accessible only to call participants."
+    },
+    "/ludoMatches/{matchId}": {
+      "schema": { "$ref": "#/entities/LudoMatch" },
+      "description": "Multiplayer Ludo match records and results."
+    }
+  }
+}
